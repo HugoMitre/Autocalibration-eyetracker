@@ -2,6 +2,7 @@
 #include <iostream>
 #include <numeric>
 #include <list>
+#include <iterator>
 #include <opencv2/core.hpp>
 using namespace std;
 using namespace cv;
@@ -42,15 +43,20 @@ void MyGaze::on_gaze_data(gtl::GazeData const &gaze_data)
 void MyGaze::analyze(list<Point2f> &points)
 {
 	vector<Point2f> p{ begin(points), end(points) };
-	std::sort(p.begin(), p.end(), [](const cv::Point2f &a, const cv::Point2f &b) {
+	vector<float> x, y;
+	transform(p.begin(), p.end(), back_inserter(x), [](Point2f const &pnt) { return pnt.x; });
+	transform(p.begin(), p.end(), back_inserter(y), [](Point2f const &pnt) { return pnt.y; });
+	sort(x.begin(), x.end());
+	sort(y.begin(), y.end());
+	/*std::sort(p.begin(), p.end(), [](const cv::Point2f &a, const cv::Point2f &b) {
 		return (a.x * a.x + a.y * a.y < b.x * b.x + b.y * b.y);
-	});
-	Point2f median = p[5];
+	});*/
+	Point2f median(x[5], y[5]);
 	int counter = 0;
 	for (auto n : p)
 	{
 		cout << n.x << ", " << n.y << endl;
-		cout << "Mean: " << median.x << ", " << median.y << endl;
+		cout << "Median: " << median.x << ", " << median.y << endl;
 		double dist = norm(n - median);
 		cout << "Distancia: " << dist << endl;
 		if (dist <= 100)
@@ -64,7 +70,8 @@ void MyGaze::analyze(list<Point2f> &points)
 					fixations.push_back(median);
 					prev_fix = median;
 					cout << endl
-						<< "Fixation!" << endl;
+						<< "Fixation!" << endl
+						<< endl;
 				}
 			}
 		}
