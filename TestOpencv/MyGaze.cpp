@@ -14,6 +14,9 @@ MyGaze::MyGaze()
 	// Connect to the server on the default TCP port (6555)
 	if (m_api.connect())
 	{
+		/*m_api.calibration_clear();
+		m_api.calibration_start(9);
+		m_api.calibration_point_start(100, 100);*/
 		// Enable GazeData notifications
 		m_api.add_listener(*this);
 	}
@@ -31,7 +34,7 @@ void MyGaze::on_gaze_data(gtl::GazeData const &gaze_data)
 	{
 		gtl::Point2D const &smoothedCoordinates = gaze_data.avg;
 		// Move GUI point, do hit-testing, log coordinates, etc.
-		cout << "time: " << gaze_data.time << "; X coordinates: " << gaze_data.avg.x << "; Y coordinates: " << gaze_data.avg.y << endl;
+		//cout << "time: " << gaze_data.time << "; X coordinates: " << gaze_data.avg.x << "; Y coordinates: " << gaze_data.avg.y << endl;
 		gd.push_back(Point2f(gaze_data.avg.x, gaze_data.avg.y));
 		if (gd.size() == 10)
 		{
@@ -55,10 +58,10 @@ void MyGaze::analyze(list<Point2f> &points)
 	int counter = 0;
 	for (auto n : p)
 	{
-		cout << n.x << ", " << n.y << endl;
-		cout << "Median: " << median.x << ", " << median.y << endl;
+		//cout << n.x << ", " << n.y << endl;
+		//cout << "Median: " << median.x << ", " << median.y << endl;
 		double dist = norm(n - median);
-		cout << "Distancia: " << dist << endl;
+		//cout << "Distancia: " << dist << endl;
 		if (dist <= 100)
 		{
 			counter++;
@@ -69,9 +72,9 @@ void MyGaze::analyze(list<Point2f> &points)
 				{
 					fixations.push_back(median);
 					prev_fix = median;
-					cout << endl
+					/*cout << endl
 						<< "Fixation!" << endl
-						<< endl;
+						<< endl;*/
 				}
 			}
 		}
@@ -82,4 +85,9 @@ void MyGaze::analyze(list<Point2f> &points)
 list<Point2f> MyGaze::get_fixations()
 {
 	return fixations;
+}
+
+vector<Point2f> MyGaze::get_readings()
+{
+	return { begin(gd), end(gd) };
 }

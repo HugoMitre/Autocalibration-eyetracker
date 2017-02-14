@@ -10,6 +10,7 @@ public:
 	MyGaze();
 	~MyGaze();
 	list<Point2f> get_fixations();
+	vector<Point2f> get_readings();
 
 private:
 	// IGazeListener
