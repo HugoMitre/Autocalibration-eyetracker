@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iterator>
 #include <vector>
+#include <fstream>
 #include <Windows.h>
 #include "MyGaze.h"
 
@@ -43,107 +44,89 @@ int display_point(float x, float y)
 	setWindowProperty("Display window", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 	// moveWindow("Display window", 0, 0);
 	imshow("Display window", matPoint); // Show our image inside it.
-	waitKey(1000);			// Wait for a keystroke in the window
+	waitKey(1000); // Wait for a keystroke in the window
+	return 0;
+}
+
+int calibration_points(Mat &a, float x, float y)
+{
+	MyGaze *m = new MyGaze();
+	display_point(x, y);
+	vector<Point2f> tmp = m->get_readings();
+	vector<float> arrtmp = { 1, tmp[1].x, tmp[1].y, tmp[1].x * tmp[1].x, tmp[1].y * tmp[1].y, tmp[1].x * tmp[1].y };
+	Mat row(arrtmp);
+	a.push_back(row.t());
+	arrtmp = { 1, tmp[4].x, tmp[4].y, tmp[4].x * tmp[4].x, tmp[4].y * tmp[4].y, tmp[4].x * tmp[4].y };
+	row = Mat(arrtmp);
+	a.push_back(row.t());
+	arrtmp = { 1, tmp[8].x, tmp[8].y, tmp[8].x * tmp[8].x, tmp[8].y * tmp[8].y, tmp[8].x * tmp[8].y };
+	row = Mat(arrtmp);
+	a.push_back(row.t());
+	m->~MyGaze();
 	return 0;
 }
 
 int main(int argc, char **argv)
 {
+	ofstream outputFile("output.csv");
 	string img_1 = "Slide 1-prima.jpg", img_2 = "Slide 2 -prima.jpg", img_3 = "Slide 3 -conteo.jpg";
 	list<Point2f> fix_1, fix_2, fix_3;
 
 	/* Calibration */
-	vector<Point2f> sx = { Point2f(100, 100), Point2f(100, 100), Point2f(100, 100),
-		Point2f(100, 300), Point2f(100, 300), Point2f(100, 300),
-		Point2f(100, 600), Point2f(100, 600), Point2f(100, 600),
-		Point2f(300, 100), Point2f(300, 100), Point2f(300, 100),
-		Point2f(300, 300), Point2f(300, 300), Point2f(300, 300),
-		Point2f(300, 600), Point2f(300, 600), Point2f(300, 600),
-		Point2f(600, 100), Point2f(600, 100), Point2f(600, 100),
-		Point2f(600, 300), Point2f(600, 300), Point2f(600, 300),
-		Point2f(600, 600), Point2f(600, 600), Point2f(600, 600) };
-	Mat a /*(sx.size(), 6, CV_32FC2)*/;
+	vector<Point2f> sp = { Point2f(100, 100), Point2f(100, 100), Point2f(100, 100),
+		Point2f(500, 100), Point2f(500, 100), Point2f(500, 100),
+		Point2f(900, 100), Point2f(900, 100), Point2f(900, 100),
+		Point2f(100, 500), Point2f(100, 500), Point2f(100, 500),
+		Point2f(500, 500), Point2f(500, 500), Point2f(500, 500),
+		Point2f(900, 500), Point2f(900, 500), Point2f(900, 500),
+		Point2f(100, 900), Point2f(100, 900), Point2f(100, 900),
+		Point2f(500, 900), Point2f(500, 900), Point2f(500, 900),
+		Point2f(900, 900), Point2f(900, 900), Point2f(900, 900) };
+	vector<float> sx, sy, ex, ey;
+	transform(sp.begin(), sp.end(), back_inserter(sx), [](Point2f const &pnt) { return pnt.x; });
+	transform(sp.begin(), sp.end(), back_inserter(sy), [](Point2f const &pnt) { return pnt.y; });
+	Mat a;/*(sx.size(), 6, CV_32FC2)*/
+	float y = 100;
+	for (int i = 0; i < 3; i++)
+	{
+		float x = 100;
+		for (int j = 0; j < 3; j++)
+		{
+			calibration_points(a, x, y);
+			x = x + 400;
+		}
+		y = y + 400;
+	}
 
-	/* Punto 1 */
-	MyGaze *m = new MyGaze();
-	display_point(100, 100);
-	vector<Point2f> tmp = m->get_readings();
-	vector<float> arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	Mat row(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 2 */
-	m = new MyGaze();
-	display_point(500, 100);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 3 */
-	m = new MyGaze();
-	display_point(900, 100);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 4 */
-	m = new MyGaze();
-	display_point(100, 500);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 5 */
-	m = new MyGaze();
-	display_point(500, 500);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 6 */
-	m = new MyGaze();
-	display_point(900, 500);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 7 */
-	m = new MyGaze();
-	display_point(100, 900);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 8 */
-	m = new MyGaze();
-	display_point(500, 900);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
-	/* Punto 9 */
-	m = new MyGaze();
-	display_point(900, 900);
-	tmp = m->get_readings();
-	arrtmp = { 1, tmp[2].x, tmp[2].y, tmp[2].x * tmp[2].x, tmp[2].y * tmp[2].y, tmp[2].x * tmp[2].y };
-	row = Mat(arrtmp);
-	a.push_back(row.t());
-	m->~MyGaze();
+	//cout << a << endl;
+	Mat matsx = Mat(sx);
+	Mat matsy = Mat(sy);
+	Mat tehtax = (a.t() * a).inv() * a.t() * matsx;
+	Mat tehtay = (a.t() * a).inv() * a.t() * matsy;
+	//cout << tehtax << endl;
 
-	cout << a << endl;
-	/*Mat matsx = Mat(sx);
-	Mat tehta = (a.t() * a).inv() * a;
-	cout << tehta << endl;*/
+	/* Estimate coordinates */
+	for (int i = 0; i < a.rows; i++)
+	{
+		Mat tmpx = a.row(i) * tehtax;
+		ex.push_back(tmpx.at<float>(0, 0));
+		Mat tmpy = a.row(i) * tehtay;
+		ey.push_back(tmpy.at<float>(0, 0));
+	}
+
+	/* Output to file */
+	if (outputFile.is_open())
+	{
+		outputFile << "Screen coordinates X, Screen coordinates Y, Estimated coordinates X, Estimated coordinates Y" << endl;
+		for (int i = 0; i < sx.size(); i++)
+		{
+			outputFile << sx[i] << ", " << sy[i] << ", " << ex[i] << ", " << ey[i] << endl;
+		}
+	}
+	else cout << "Unable to open output file";
 
 	// Imagen 1
-	m = new MyGaze();
+	MyGaze *m = new MyGaze();
 	display_img(img_1);
 	//fix_1 = m->get_fixations();
 	m->~MyGaze();
