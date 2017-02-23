@@ -89,5 +89,5 @@ list<Point2f> MyGaze::get_fixations()
 
 vector<Point2f> MyGaze::get_readings()
 {
-	return { begin(gd), end(gd) };
+	return{ begin(gd), end(gd) };
 }
