@@ -26,6 +26,7 @@ MyGaze::~MyGaze()
 {
 	m_api.remove_listener(*this);
 	m_api.disconnect();
+	fixations.clear();
 }
 
 void MyGaze::on_gaze_data(gtl::GazeData const &gaze_data)
@@ -58,23 +59,23 @@ void MyGaze::analyze(list<Point2f> &points)
 	int counter = 0;
 	for (auto n : p)
 	{
-		//cout << n.x << ", " << n.y << endl;
+		cout << n.x << ", " << n.y << endl;
 		//cout << "Median: " << median.x << ", " << median.y << endl;
 		double dist = norm(n - median);
 		//cout << "Distancia: " << dist << endl;
-		if (dist <= 100)
+		if (dist <= 80)
 		{
 			counter++;
 			if (counter == 5)
 			{
 				double dist_prev = norm(median - prev_fix);
-				if (dist_prev >= 100)
+				if (dist_prev >= 80)
 				{
 					fixations.push_back(median);
 					prev_fix = median;
-					/*cout << endl
+					cout << endl
 						<< "Fixation!" << endl
-						<< endl;*/
+						<< endl;
 				}
 			}
 		}
@@ -90,4 +91,9 @@ list<Point2f> MyGaze::get_fixations()
 vector<Point2f> MyGaze::get_readings()
 {
 	return{ begin(gd), end(gd) };
+}
+
+vector<Point2f> MyGaze::get_fixations_vec()
+{
+	return{ begin(fixations), end(fixations) };
 }
