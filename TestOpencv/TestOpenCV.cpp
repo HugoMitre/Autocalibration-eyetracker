@@ -13,6 +13,133 @@
 using namespace cv;
 using namespace std;
 
+vector<Point2f> coords;
+int width = GetSystemMetrics(SM_CXSCREEN), height = GetSystemMetrics(SM_CYSCREEN);
+
+void on_mouse(int event, int x, int y, int, void* imgptr)
+{
+	Mat &img = (*(Mat*)imgptr);
+	if (event == EVENT_LBUTTONDOWN)
+	{
+		cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+		circle(img,
+			Point(x, y),
+			5.0,
+			Scalar(0, 0, 255),
+			-1,
+			CV_AA);
+		imshow("Display window", img);
+		coords.push_back(Point2f(x, y));
+	}
+	else if (event == EVENT_LBUTTONUP)
+	{
+		cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+		circle(img,
+			Point(x, y),
+			5.0,
+			Scalar(0, 0, 255),
+			-1,
+			CV_AA);
+		coords.push_back(Point2f(x, y));
+		for (auto n : coords)
+		{
+			cout << n.x << " " << n.y << endl;
+		}
+		rectangle(img, coords[0], coords[1], Scalar(0, 255, 0));
+		coords.clear();
+		imshow("Display window", img);
+	}
+	else if (event == EVENT_MBUTTONDOWN)
+	{
+		cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+	}
+	else if (event == EVENT_MOUSEMOVE)
+	{
+		cout << "Mouse move over the window - position (" << x << ", " << y << ")" << endl;
+	}
+}
+
+int display_line(Mat &line_ds, Mat &img)
+{
+	for (int i = 0; i < line_ds.rows; i++)
+	{
+		const double* Mi = line_ds.ptr<double>(i);
+		//circle(img, Point(Mi[0], Mi[1]), 2.0, Scalar(0, 0, 0), -1, CV_AA);
+		if (i + 1 < line_ds.rows)
+		{
+			double* p2 = line_ds.ptr<double>(i + 1);
+			line(img, Point(Mi[0], Mi[1]), Point(p2[0], p2[1]), Scalar(0, 0, 0), 1, CV_AA);
+		}
+	}
+	return 0;
+}
+
+Mat adjust_line(Mat &centroids)
+{
+	Mat y = centroids.col(1), x = centroids.col(0), one = Mat::ones(x.size(), x.type());
+	hconcat(x, one, one);
+	Mat theta = (one.t() * one).inv() * one.t() * y;
+	Mat yp = (theta.at<double>(0) * x) + theta.at<double>(1);
+	return yp;
+}
+
+int get_centroids(Mat &img)
+{
+	Mat grey, binimg, labels, stats, centroids, best_labels, attemps, centers, centroids32f;
+	cvtColor(img, grey, COLOR_BGR2GRAY);
+	threshold(grey, binimg, 80, 255, THRESH_BINARY_INV | THRESH_OTSU);
+	connectedComponentsWithStats(binimg, labels, stats, centroids);
+	//cout << centroids << endl;
+	/*for (int i = 0; i < centroids.rows; i++)
+	{
+		const double* Mi = centroids.ptr<double>(i);
+		circle(img,
+			Point(Mi[0], Mi[1]),
+			2.0,
+			Scalar(0, 0, 255),
+			-1,
+			8);
+	}*/
+	//imshow("Display window", img);
+	centroids.convertTo(centroids32f, CV_32F);
+	kmeans(centroids32f.col(1), 3, best_labels, TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 10000, 0.0001), 5, KMEANS_PP_CENTERS, centers);
+	Mat red, green, blue;
+	for (int i = 0; i < centroids.rows; i++)
+	{
+		const double* Mi = centroids.ptr<double>(i);
+		int tmp = best_labels.at<int>(i);
+		switch (tmp)
+		{
+		case 0:
+			//cout << "Red" << endl;
+			circle(img, Point(Mi[0], Mi[1]), 2.0, Scalar(0, 0, 255), -1, CV_AA);
+			red.push_back(centroids.row(i));
+			break;
+		case 1:
+			//cout << "Green" << endl;
+			circle(img, Point(Mi[0], Mi[1]), 2.0, Scalar(0, 255, 0), -1, CV_AA);
+			green.push_back(centroids.row(i));
+			break;
+		case 2:
+			//cout << "Blue" << endl;
+			circle(img, Point(Mi[0], Mi[1]), 2.0, Scalar(255, 0, 0), -1, CV_AA);
+			blue.push_back(centroids.row(i));
+			break;
+		default:
+			break;
+		}
+	}
+	Mat yp_red = adjust_line(red), yp_blue = adjust_line(blue), yp_green = adjust_line(green), line_red, line_blue, line_green;
+	hconcat(red.col(0), yp_red, line_red);
+	display_line(line_red, img);
+	hconcat(blue.col(0), yp_blue, line_blue);
+	display_line(line_blue, img);
+	hconcat(green.col(0), yp_green, line_green);
+	display_line(line_green, img);
+	imshow("Display window", img);
+	return 0;
+}
+
 int display_img(string path)
 {
 	Mat image;
@@ -22,9 +149,14 @@ int display_img(string path)
 		cout << "Could not open or find the image" << std::endl;
 		return -1;
 	}
+	resize(image, image, Size(width, height), 0, 0, CV_INTER_AREA);
 	namedWindow("Display window", CV_WINDOW_NORMAL); // Create a window for display.
 	setWindowProperty("Display window", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+	setMouseCallback("Display window", on_mouse, &image);
 	imshow("Display window", image); // Show our image inside it.
+	get_centroids(image);
+	/*cout << image.rows << " " << image.cols << endl;
+	cout << image.size << endl << image.type() << endl;*/
 	waitKey(0); // Wait for a keystroke in the window
 	return 0;
 }
@@ -37,11 +169,11 @@ int display_point(float x, float y)
 		5.0,
 		Scalar(0, 0, 255),
 		-1,
-		8);
+		CV_AA);
 	namedWindow("Display window", CV_WINDOW_NORMAL); // Create a window for display.
 	setWindowProperty("Display window", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 	imshow("Display window", matPoint); // Show our image inside it.
-	waitKey(1000); // Wait for a keystroke in the window
+	waitKey(1/*000*/); // Wait for a keystroke in the window
 	return 0;
 }
 
@@ -50,11 +182,6 @@ int calibration_points(Mat &a, float x, float y, vector<Point2f> tmp)
 	//MyGaze *m = new MyGaze();
 	display_point(x, y);
 	//vector<Point2f> tmp = m->get_readings();
-	/*vector<float> xs, ys;
-	transform(tmp.begin(), tmp.end(), back_inserter(xs), [](Point2f const &pnt) { return pnt.x; });
-	transform(tmp.begin(), tmp.end(), back_inserter(ys), [](Point2f const &pnt) { return pnt.y; });
-	sort(xs.begin(), xs.end());
-	sort(ys.begin(), ys.end());*/
 	std::sort(tmp.begin(), tmp.end(), [=](const cv::Point2f &a, const cv::Point2f &b) {
 		return (norm(a - Point2f(x, y)) < norm(b - Point2f(x, y)));
 	});
@@ -62,20 +189,20 @@ int calibration_points(Mat &a, float x, float y, vector<Point2f> tmp)
 	/*ofstream outfile;
 	outfile.open("test.csv", std::ios_base::app);
 	outfile << "X, Y" << endl;*/
-	for (auto n : tmp)
+	/*for (auto n : tmp)
 	{
 		//outfile << n.x << ", " << n.y << endl;
 		double dist = norm(n - Point2f(x, y));
 		cout << "Dist " << dist << endl;
-	}
-	cout << endl;
-	vector<double> arrtmp = { 1, tmp[median - 2].x, tmp[median - 2].y/*, tmp[median - 2].x * tmp[median - 2].x, tmp[median - 2].y * tmp[median - 2].y, tmp[median - 2].x * tmp[median - 2].y */};
+	}*/
+	//cout << endl;
+	vector<double> arrtmp = { 1, tmp[median - 2].x, tmp[median - 2].y, tmp[median - 2].x * tmp[median - 2].x, tmp[median - 2].y * tmp[median - 2].y, tmp[median - 2].x * tmp[median - 2].y };
 	Mat row(arrtmp);
 	a.push_back(row.t());
-	arrtmp = { 1, tmp[median].x, tmp[median].y/*, tmp[median].x * tmp[median].x, tmp[median].y * tmp[median].y, tmp[median].x * tmp[median].y */};
+	arrtmp = { 1, tmp[median].x, tmp[median].y, tmp[median].x * tmp[median].x, tmp[median].y * tmp[median].y, tmp[median].x * tmp[median].y };
 	row = Mat(arrtmp);
 	a.push_back(row.t());
-	arrtmp = { 1, tmp[median + 2].x, tmp[median + 2].y/*, tmp[median + 2].x * tmp[median + 2].x, tmp[median + 2].y * tmp[median + 2].y, tmp[median + 2].x * tmp[median + 2].y */};
+	arrtmp = { 1, tmp[median + 2].x, tmp[median + 2].y, tmp[median + 2].x * tmp[median + 2].x, tmp[median + 2].y * tmp[median + 2].y, tmp[median + 2].x * tmp[median + 2].y };
 	row = Mat(arrtmp);
 	a.push_back(row.t());
 	//m->~MyGaze();
@@ -137,13 +264,13 @@ int main(int argc, char **argv)
 	/* Calibration */
 	vector<Point2f> sp = { Point2f(100, 100), Point2f(100, 100), Point2f(100, 100),
 		Point2f(500, 100), Point2f(500, 100), Point2f(500, 100),
-		Point2f(900, 100), Point2f(900, 100), Point2f(900, 100)//,
-		/*Point2f(100, 500), Point2f(100, 500), Point2f(100, 500),
+		Point2f(900, 100), Point2f(900, 100), Point2f(900, 100),
+		Point2f(100, 500), Point2f(100, 500), Point2f(100, 500),
 		Point2f(500, 500), Point2f(500, 500), Point2f(500, 500),
 		Point2f(900, 500), Point2f(900, 500), Point2f(900, 500),
 		Point2f(100, 900), Point2f(100, 900), Point2f(100, 900),
 		Point2f(500, 900), Point2f(500, 900), Point2f(500, 900),
-		Point2f(900, 900), Point2f(900, 900), Point2f(900, 900) */};
+		Point2f(900, 900), Point2f(900, 900), Point2f(900, 900) };
 	vector<double> sx, sy, ex, ey;
 	transform(sp.begin(), sp.end(), back_inserter(sx), [](Point2f const &pnt) { return pnt.x; });
 	transform(sp.begin(), sp.end(), back_inserter(sy), [](Point2f const &pnt) { return pnt.y; });
@@ -170,8 +297,8 @@ int main(int argc, char **argv)
 	int count = 0;
 	/////////////////////////////////////////////////////////////
 	float y = 100;
-	//for (int i = 0; i < 3; i++)
-	//{
+	for (int i = 0; i < 3; i++)
+	{
 		float x = 100;
 		for (int j = 0; j < 3; j++)
 		{
@@ -180,8 +307,8 @@ int main(int argc, char **argv)
 			calibration_points(a, x, y, sub);
 			x = x + 400;
 		}
-	//	y = y + 400;
-	//}
+		y = y + 400;
+	}
 
 	//cout << a << endl;
 	Mat matsx = Mat(sx);
@@ -211,8 +338,8 @@ int main(int argc, char **argv)
 		Eigen::Map<Eigen::VectorXd> Y_Eigen(&sy[0], sy.size());
 		Eigen::MatrixXd Q, R;
 		Eigen::VectorXd thetaX_Eigen, thetaY_Eigen;
-		thetaX_Eigen = Eigen::VectorXd::Zero(3);
-		thetaY_Eigen = Eigen::VectorXd::Zero(3);
+		thetaX_Eigen = Eigen::VectorXd::Zero(6);
+		thetaY_Eigen = Eigen::VectorXd::Zero(6);
 		Eigen::HouseholderQR<Eigen::MatrixXd> qr(A_Eigen);
 		Q = qr.householderQ();
 		R = qr.matrixQR().triangularView<Eigen::Upper>();
@@ -257,25 +384,54 @@ int main(int argc, char **argv)
 	}
 	else cout << "Unable to open output file";
 
+	//waitKey(0);
+	//MyGaze *m = new MyGaze();
+	//display_point(300, 300);
+	//vector<Point2f> tmp = m->get_readings();
+	//std::sort(tmp.begin(), tmp.end(), [=](const cv::Point2f &a, const cv::Point2f &b) {
+	//	return (norm(a - Point2f(300, 300)) < norm(b - Point2f(300, 300)));
+	//});
+	//int median = floorf(tmp.size() / 2) - 1;
+	//vector<double> arrtmp = { 1, tmp[median].x, tmp[median].y, tmp[median].x * tmp[median].x, tmp[median].y * tmp[median].y, tmp[median].x * tmp[median].y };
+	//Mat row(arrtmp);
+	//cout << "here" << endl;
+	//cout << row.t() * thetax << endl << row.t() * thetay << endl;
+	////fix_1 = m->get_fixations();
+	//m->~MyGaze();
+	//waitKey(0);
+
+	// Fixation point
+	cout << "X: " << width << endl;
+	cout << "Y: " << height << endl;
+	Mat matPoint(Size(width, height), CV_8UC3);
+	matPoint.setTo(Scalar(255, 255, 255));
+	circle(matPoint,
+		Point(width / 2, 100),
+		10.0,
+		Scalar(0, 0, 0),
+		-1,
+		CV_AA);
+	imshow("Display window", matPoint);
+	waitKey(0);
 	// Imagen 1
 	MyGaze *m = new MyGaze();
-	display_img(img_1);
+	display_img("Diapositiva4.PNG");
 	//fix_1 = m->get_fixations();
 	m->~MyGaze();
 
-	// Imagen 2
-	m = new MyGaze();
-	display_img(img_2);
-	//fix_1 = m->get_fixations();
-	m->~MyGaze();
+	//// Imagen 2
+	//m = new MyGaze();
+	//display_img(img_2);
+	////fix_1 = m->get_fixations();
+	//m->~MyGaze();
 
-	// Imagen 3
-	m = new MyGaze();
-	display_img(img_3);
-	//fix_1 = m->get_fixations();
-	m->~MyGaze();
+	//// Imagen 3
+	//m = new MyGaze();
+	//display_img(img_3);
+	////fix_1 = m->get_fixations();
+	//m->~MyGaze();
 
-	auto_calibrate();
+	//auto_calibrate();
 
 	return 0;
 }

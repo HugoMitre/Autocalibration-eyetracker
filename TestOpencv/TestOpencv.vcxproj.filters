@@ -30,4 +30,27 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Slide 1-prima.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Slide 2 -prima.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Slide 3 -conteo.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Diapositiva4.PNG">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Diapositiva1.PNG">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Diapositiva2.PNG">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Diapositiva3.PNG">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

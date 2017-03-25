@@ -59,7 +59,7 @@ void MyGaze::analyze(list<Point2f> &points)
 	int counter = 0;
 	for (auto n : p)
 	{
-		cout << n.x << ", " << n.y << endl;
+		//cout << n.x << ", " << n.y << endl;
 		//cout << "Median: " << median.x << ", " << median.y << endl;
 		double dist = norm(n - median);
 		//cout << "Distancia: " << dist << endl;
@@ -73,9 +73,9 @@ void MyGaze::analyze(list<Point2f> &points)
 				{
 					fixations.push_back(median);
 					prev_fix = median;
-					cout << endl
+					/*cout << endl
 						<< "Fixation!" << endl
-						<< endl;
+						<< endl;*/
 				}
 			}
 		}

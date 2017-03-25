@@ -160,6 +160,15 @@
   <ItemGroup>
     <ClInclude Include="MyGaze.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Diapositiva1.PNG" />
+    <Image Include="Diapositiva2.PNG" />
+    <Image Include="Diapositiva3.PNG" />
+    <Image Include="Diapositiva4.PNG" />
+    <Image Include="Slide 1-prima.jpg" />
+    <Image Include="Slide 2 -prima.jpg" />
+    <Image Include="Slide 3 -conteo.jpg" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
