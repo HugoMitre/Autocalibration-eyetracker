@@ -135,7 +135,7 @@ Point2f proyect_line(Mat &theta, Mat &img, Point2f pnt)
 	return Point2f(x, y);
 }
 
-Mat adjust_line(Mat &centroids, Mat &img, Point2f &pnt, vector<Point2f> pnt_in)
+Mat adjust_line(Mat &centroids, Mat &img, vector<Point2f> &pnt, vector<Point2f> pnt_in)
 {
 	Mat y = centroids.col(1), x = centroids.col(0), one = Mat::ones(x.size(), x.type());
 	hconcat(x, one, one);
@@ -144,7 +144,12 @@ Mat adjust_line(Mat &centroids, Mat &img, Point2f &pnt, vector<Point2f> pnt_in)
 	//pnt = proyect_line(theta, img, pnt_in);
 	Eigen::Vector3d line_h(theta.at<double>(0), -1, theta.at<double>(1));
 	cout << line_h << " lineaaaa" << endl;
-	pnt = intersect(line_h, pnt_in);
+	vector<Point2f> vec_line, vec_proyect;
+	pnt.push_back(intersect(line_h, pnt_in));
+	for (auto i : pnt_in)
+	{
+		pnt.push_back(proyect_line(theta, img, i));
+	}
 	return yp;
 }
 
@@ -179,14 +184,15 @@ int get_centroids(Mat &img, vector<Point2f> &pnts)
 			break;
 		}
 	}
-	Point2f pnt_red, pnt_blue, pnt_green, pnt_up((width / 3) * 2, 100), pnt_down(width / 3, height - 100);
-	vector<Point2f> pnt_in;
+	Point2f pnt_up((width / 3) * 2, 100), pnt_down(width / 3, height - 100);
+	vector<Point2f> pnt_in, pnt_red, pnt_blue, pnt_green;
 	pnt_in.push_back(pnt_up);
 	pnt_in.push_back(pnt_down);
 	Mat yp_red = adjust_line(red, img, pnt_red, pnt_in), yp_blue = adjust_line(blue, img, pnt_blue, pnt_in), yp_green = adjust_line(green, img, pnt_green, pnt_in), line_red, line_blue, line_green;
-	pnts.push_back(pnt_red);
-	pnts.push_back(pnt_blue);
-	pnts.push_back(pnt_green);
+	pnts.reserve(pnt_red.size() + pnt_blue.size() + pnt_green.size());
+	pnts.insert(pnts.end(), pnt_red.begin(), pnt_red.end());
+	pnts.insert(pnts.end(), pnt_blue.begin(), pnt_blue.end());
+	pnts.insert(pnts.end(), pnt_green.begin(), pnt_green.end());
 	hconcat(red.col(0), yp_red, line_red);
 	display_line(line_red, img);
 	hconcat(blue.col(0), yp_blue, line_blue);
@@ -286,7 +292,7 @@ int auto_calibrate()
 	imshow("Display window", matPoint); // Show our image inside it.
 	waitKey(1000);
 	//fix_1 = m->get_fixations_vec();
-	//outfile.open("fix1.csv", std::ios_base::app);
+	//outfile.open("fix1.csv");
 	////outfile << "X, Y" << endl;
 	//for (auto n : fix_1)
 	//{
@@ -308,7 +314,7 @@ int auto_calibrate()
 	imshow("Display window", matPoint); // Show our image inside it.
 	waitKey(1000);
 	//fix_2 = m->get_fixations_vec();
-	//outfile.open("fix2.csv", std::ios_base::app);
+	//outfile.open("fix2.csv");
 	////outfile << "X, Y" << endl;
 	//for (auto n : fix_2)
 	//{
@@ -387,9 +393,8 @@ int auto_calibrate()
 		default:
 			break;
 		}
-	}
-	Point2f pnt_red, pnt_blue, pnt_green;
-	vector<Point2f> pnt_in;
+	} 
+	vector<Point2f> pnt_in, pnt_red, pnt_blue, pnt_green;
 	pnt_in.push_back(fix_1[0]); //floorf(fix_1.size() / 2)]);
 	pnt_in.push_back(fix_2[0]); //floorf(fix_2.size() / 2)]); //floorf(fix_2.size() / 2) - 1
 	cout << endl;
@@ -408,25 +413,32 @@ int auto_calibrate()
 	display_line(line_green, img);
 	imshow("Display window", img);
 	vector<Point2f> pnts_sensor;
-	pnts_sensor.push_back(pnt_red);
-	pnts_sensor.push_back(pnt_blue);
-	pnts_sensor.push_back(pnt_green);
+	pnts_sensor.reserve(pnt_red.size() + pnt_blue.size() + pnt_green.size());
+	pnts_sensor.insert(pnts_sensor.end(), pnt_red.begin(), pnt_red.end());
+	pnts_sensor.insert(pnts_sensor.end(), pnt_blue.begin(), pnt_blue.end());
+	pnts_sensor.insert(pnts_sensor.end(), pnt_green.begin(), pnt_green.end());
 	std::sort(pnts_img.begin(), pnts_img.end(), [=](const cv::Point2f &p1, const cv::Point2f &p2) {
 		return (norm(p1 - Point2f((width / 3) * 2, 100)) < norm(p2 - Point2f((width / 3) * 2, 100)));
 	});
 	std::sort(pnts_sensor.begin(), pnts_sensor.end(), [=](const cv::Point2f &p1, const cv::Point2f &p2) {
 		return (norm(p1 - pnt_in[0]) < norm(p2 - pnt_in[0]));
 	});
-	Eigen::Matrix<double, 5, 3> a;
+	Eigen::Matrix<double, 11, 3> a;
 	a << 1, pnts_sensor[0].x, pnts_sensor[0].y,
 		1, pnts_sensor[1].x, pnts_sensor[1].y,
 		1, pnts_sensor[2].x, pnts_sensor[2].y,
+		1, pnts_sensor[3].x, pnts_sensor[3].y,
+		1, pnts_sensor[4].x, pnts_sensor[4].y,
+		1, pnts_sensor[5].x, pnts_sensor[5].y,
+		1, pnts_sensor[6].x, pnts_sensor[6].y,
+		1, pnts_sensor[7].x, pnts_sensor[7].y,
+		1, pnts_sensor[8].x, pnts_sensor[8].y,
 		1, pnt_in[0].x, pnt_in[0].y,
 		1, pnt_in[1].x, pnt_in[1].y;
-	Eigen::VectorXd x(5);
-	x << pnts_img[0].x, pnts_img[1].x, pnts_img[2].x, (width / 3) * 2, width / 3;
-	Eigen::VectorXd y(5);
-	y << pnts_img[0].y, pnts_img[1].y, pnts_img[2].y, 100, height - 100;
+	Eigen::VectorXd x(11);
+	x << pnts_img[0].x, pnts_img[1].x, pnts_img[2].x, pnts_img[3].x, pnts_img[4].x, pnts_img[5].x, pnts_img[6].x, pnts_img[7].x, pnts_img[8].x, (width / 3) * 2, width / 3;
+	Eigen::VectorXd y(11);
+	y << pnts_img[0].y, pnts_img[1].y, pnts_img[2].y, pnts_img[3].y, pnts_img[4].y, pnts_img[5].y, pnts_img[6].y, pnts_img[7].y, pnts_img[8].y, 100, height - 100;
 	Eigen::MatrixXd Q, R;
 	Eigen::VectorXd thetaX_Eigen, thetaY_Eigen;
 	thetaX_Eigen = Eigen::VectorXd::Zero(3);
@@ -500,7 +512,7 @@ int auto_calibrate()
 	waitKey(0);
 	vector<Point2f> fix_4;
 	//fix_4 = m->get_fixations_vec();
-	//outfile.open("fix4.csv", std::ios_base::app);
+	//outfile.open("fix4.csv");
 	////outfile << "X, Y" << endl;
 	//for (auto n : fix_4)
 	//{
