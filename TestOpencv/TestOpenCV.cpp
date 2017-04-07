@@ -15,7 +15,7 @@ using namespace std;
 
 vector<Point2f> coords;
 int width = GetSystemMetrics(SM_CXSCREEN), height = GetSystemMetrics(SM_CYSCREEN);
-double *pointer;
+Point2f scr_pnt_up((width / 5) * 4, 100), scr_pnt_down(width / 5, height - 100);
 
 Mat read_file(string path)
 {
@@ -35,7 +35,7 @@ Mat read_file(string path)
 	int count = 0;
 	for (auto n : values)
 	{
-		cout << n[0] << " " << n[1] << endl;
+		//cout << n[0] << " " << n[1] << endl;
 		//tmp.push_back(Point2f(n[0], n[1]));
 		if (count != 1 || count != 2)
 		{
@@ -119,7 +119,7 @@ Point2f intersect(Eigen::Vector3d line_h, vector<Point2f> pnt_in)
 	pnt2 << pnt_in[1].x, pnt_in[1].y, 1;
 	line_intersect = pnt1.cross(pnt2);
 	cout << line_intersect << "linea de interserccion" << endl;
-	cout << pnt1 << pnt2 << "ountos de fijacion" << endl;
+	cout << pnt1 << endl << pnt2 << "Puntos de fijacion" << endl;
 	pnt_intersect = line_h.cross(line_intersect);
 	pnt_intersect = pnt_intersect * (1 / pnt_intersect(2));
 	return Point2f(pnt_intersect(0), pnt_intersect(1));
@@ -141,9 +141,7 @@ Mat adjust_line(Mat &centroids, Mat &img, vector<Point2f> &pnt, vector<Point2f> 
 	hconcat(x, one, one);
 	Mat theta = (one.t() * one).inv() * one.t() * y;
 	Mat yp = (theta.at<double>(0) * x) + theta.at<double>(1);
-	//pnt = proyect_line(theta, img, pnt_in);
 	Eigen::Vector3d line_h(theta.at<double>(0), -1, theta.at<double>(1));
-	cout << line_h << " lineaaaa" << endl;
 	vector<Point2f> vec_line, vec_proyect;
 	pnt.push_back(intersect(line_h, pnt_in));
 	for (auto i : pnt_in)
@@ -184,10 +182,9 @@ int get_centroids(Mat &img, vector<Point2f> &pnts)
 			break;
 		}
 	}
-	Point2f pnt_up((width / 3) * 2, 100), pnt_down(width / 3, height - 100);
 	vector<Point2f> pnt_in, pnt_red, pnt_blue, pnt_green;
-	pnt_in.push_back(pnt_up);
-	pnt_in.push_back(pnt_down);
+	pnt_in.push_back(scr_pnt_up);
+	pnt_in.push_back(scr_pnt_down);
 	Mat yp_red = adjust_line(red, img, pnt_red, pnt_in), yp_blue = adjust_line(blue, img, pnt_blue, pnt_in), yp_green = adjust_line(green, img, pnt_green, pnt_in), line_red, line_blue, line_green;
 	pnts.reserve(pnt_red.size() + pnt_blue.size() + pnt_green.size());
 	pnts.insert(pnts.end(), pnt_red.begin(), pnt_red.end());
@@ -200,7 +197,6 @@ int get_centroids(Mat &img, vector<Point2f> &pnts)
 	hconcat(green.col(0), yp_green, line_green);
 	display_line(line_green, img);
 	imshow("Display window", img);
-	pointer = green.ptr<double>(0);
 	return 0;
 }
 
@@ -282,7 +278,7 @@ int auto_calibrate()
 	Mat matPoint(Size(width, height), CV_8UC3);
 	matPoint.setTo(Scalar(255, 255, 255));
 	circle(matPoint,
-		Point((width / 3) * 2, 100),
+		scr_pnt_up,
 		10.0,
 		Scalar(0, 0, 0),
 		-1,
@@ -304,7 +300,7 @@ int auto_calibrate()
 	matPoint = Mat(Size(width, height), CV_8UC3);
 	matPoint.setTo(Scalar(255, 255, 255));
 	circle(matPoint,
-		Point(width / 3, height - 100),
+		scr_pnt_down,
 		10.0,
 		Scalar(0, 0, 0),
 		-1,
@@ -324,7 +320,6 @@ int auto_calibrate()
 	//m->~MyGaze();
 	// Imagen 1
 	//m = new MyGaze();
-	//MyGaze *m = new MyGaze();
 	Mat img = display_img("Diapositiva4.PNG");
 	//waitKey(0);
 	vector<Point2f> pnts_img;
@@ -361,17 +356,17 @@ int auto_calibrate()
 		fix_2.push_back(Point2f(ptr[0], ptr[1]));
 	}
 	std::sort(fix_1.begin(), fix_1.end(), [=](const cv::Point2f &a, const cv::Point2f &b) {
-		return (norm(a - Point2f((width / 3) * 2, 100)) < norm(b - Point2f((width / 3) * 2, 100)));
+		return (norm(a - scr_pnt_up) < norm(b - scr_pnt_up));
 	});
 	std::sort(fix_2.begin(), fix_2.end(), [=](const cv::Point2f &a, const cv::Point2f &b) {
-		return (norm(a - Point2f(width / 3, height - 100)) < norm(b - Point2f(width / 3, height - 100)));
+		return (norm(a - scr_pnt_down) < norm(b - scr_pnt_down));
 	});
 	centroids.convertTo(centroids32f, CV_32F);
 	kmeans(centroids32f.col(1), 3, best_labels, TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 10000, 0.0001), 5, KMEANS_PP_CENTERS, centers);
 	Mat red, green, blue;
 	for (int i = 0; i < centroids.rows; i++)
 	{
-		const double *Mi = centroids.ptr<double>(i);
+		double *Mi = centroids.ptr<double>(i);
 		int tmp = best_labels.at<int>(i);
 		switch (tmp)
 		{
@@ -393,18 +388,18 @@ int auto_calibrate()
 		default:
 			break;
 		}
-	} 
+	}
 	vector<Point2f> pnt_in, pnt_red, pnt_blue, pnt_green;
 	pnt_in.push_back(fix_1[0]); //floorf(fix_1.size() / 2)]);
 	pnt_in.push_back(fix_2[0]); //floorf(fix_2.size() / 2)]); //floorf(fix_2.size() / 2) - 1
 	cout << endl;
 	for (auto n : pnt_in)
 	{
-		cout << "pinto et " << n.x << ", " << n.y << endl;
+		cout << "punto est " << n.x << ", " << n.y << endl;
 	}
 	cout << endl;
 	Mat yp_red = adjust_line(red, img, pnt_red, pnt_in), yp_blue = adjust_line(blue, img, pnt_blue, pnt_in), yp_green = adjust_line(green, img, pnt_green, pnt_in), line_red, line_blue, line_green;
-	cout << "declaration" << endl;
+	//cout << "declaration" << endl;
 	hconcat(red.col(0), yp_red, line_red);
 	display_line(line_red, img);
 	hconcat(blue.col(0), yp_blue, line_blue);
@@ -418,31 +413,31 @@ int auto_calibrate()
 	pnts_sensor.insert(pnts_sensor.end(), pnt_blue.begin(), pnt_blue.end());
 	pnts_sensor.insert(pnts_sensor.end(), pnt_green.begin(), pnt_green.end());
 	std::sort(pnts_img.begin(), pnts_img.end(), [=](const cv::Point2f &p1, const cv::Point2f &p2) {
-		return (norm(p1 - Point2f((width / 3) * 2, 100)) < norm(p2 - Point2f((width / 3) * 2, 100)));
+		return (norm(p1 - scr_pnt_up) < norm(p2 - scr_pnt_up));
 	});
 	std::sort(pnts_sensor.begin(), pnts_sensor.end(), [=](const cv::Point2f &p1, const cv::Point2f &p2) {
 		return (norm(p1 - pnt_in[0]) < norm(p2 - pnt_in[0]));
 	});
-	Eigen::Matrix<double, 11, 3> a;
-	a << 1, pnts_sensor[0].x, pnts_sensor[0].y,
-		1, pnts_sensor[1].x, pnts_sensor[1].y,
-		1, pnts_sensor[2].x, pnts_sensor[2].y,
-		1, pnts_sensor[3].x, pnts_sensor[3].y,
-		1, pnts_sensor[4].x, pnts_sensor[4].y,
-		1, pnts_sensor[5].x, pnts_sensor[5].y,
-		1, pnts_sensor[6].x, pnts_sensor[6].y,
-		1, pnts_sensor[7].x, pnts_sensor[7].y,
-		1, pnts_sensor[8].x, pnts_sensor[8].y,
-		1, pnt_in[0].x, pnt_in[0].y,
-		1, pnt_in[1].x, pnt_in[1].y;
+	Eigen::Matrix<double, 11, 6> a;
+	a << 1, pnts_sensor[0].x, pnts_sensor[0].y, pnts_sensor[0].x * pnts_sensor[0].x, pnts_sensor[0].y * pnts_sensor[0].y, pnts_sensor[0].x * pnts_sensor[0].y,
+		1, pnts_sensor[1].x, pnts_sensor[1].y, pnts_sensor[1].x * pnts_sensor[1].x, pnts_sensor[1].y * pnts_sensor[1].y, pnts_sensor[1].x * pnts_sensor[1].y,
+		1, pnts_sensor[2].x, pnts_sensor[2].y, pnts_sensor[2].x * pnts_sensor[2].x, pnts_sensor[2].y * pnts_sensor[2].y, pnts_sensor[2].x * pnts_sensor[2].y,
+		1, pnts_sensor[3].x, pnts_sensor[3].y, pnts_sensor[3].x * pnts_sensor[3].x, pnts_sensor[3].y * pnts_sensor[3].y, pnts_sensor[3].x * pnts_sensor[3].y,
+		1, pnts_sensor[4].x, pnts_sensor[4].y, pnts_sensor[4].x * pnts_sensor[4].x, pnts_sensor[4].y * pnts_sensor[4].y, pnts_sensor[4].x * pnts_sensor[4].y,
+		1, pnts_sensor[5].x, pnts_sensor[5].y, pnts_sensor[5].x * pnts_sensor[5].x, pnts_sensor[5].y * pnts_sensor[5].y, pnts_sensor[5].x * pnts_sensor[5].y,
+		1, pnts_sensor[6].x, pnts_sensor[6].y, pnts_sensor[6].x * pnts_sensor[6].x, pnts_sensor[6].y * pnts_sensor[6].y, pnts_sensor[6].x * pnts_sensor[6].y,
+		1, pnts_sensor[7].x, pnts_sensor[7].y, pnts_sensor[7].x * pnts_sensor[7].x, pnts_sensor[7].y * pnts_sensor[7].y, pnts_sensor[7].x * pnts_sensor[7].y,
+		1, pnts_sensor[8].x, pnts_sensor[8].y, pnts_sensor[8].x * pnts_sensor[8].x, pnts_sensor[8].y * pnts_sensor[8].y, pnts_sensor[8].x * pnts_sensor[8].y,
+		1, pnt_in[0].x, pnt_in[0].y, pnt_in[0].x * pnt_in[0].x, pnt_in[0].y * pnt_in[0].y, pnt_in[0].x * pnt_in[0].y,
+		1, pnt_in[1].x, pnt_in[1].y, pnt_in[1].x * pnt_in[1].x, pnt_in[1].y * pnt_in[1].y, pnt_in[1].x * pnt_in[1].y;
 	Eigen::VectorXd x(11);
-	x << pnts_img[0].x, pnts_img[1].x, pnts_img[2].x, pnts_img[3].x, pnts_img[4].x, pnts_img[5].x, pnts_img[6].x, pnts_img[7].x, pnts_img[8].x, (width / 3) * 2, width / 3;
+	x << pnts_img[0].x, pnts_img[1].x, pnts_img[2].x, pnts_img[3].x, pnts_img[4].x, pnts_img[5].x, pnts_img[6].x, pnts_img[7].x, pnts_img[8].x, scr_pnt_up.x, scr_pnt_down.x;
 	Eigen::VectorXd y(11);
-	y << pnts_img[0].y, pnts_img[1].y, pnts_img[2].y, pnts_img[3].y, pnts_img[4].y, pnts_img[5].y, pnts_img[6].y, pnts_img[7].y, pnts_img[8].y, 100, height - 100;
+	y << pnts_img[0].y, pnts_img[1].y, pnts_img[2].y, pnts_img[3].y, pnts_img[4].y, pnts_img[5].y, pnts_img[6].y, pnts_img[7].y, pnts_img[8].y, scr_pnt_up.y, scr_pnt_down.y;
 	Eigen::MatrixXd Q, R;
 	Eigen::VectorXd thetaX_Eigen, thetaY_Eigen;
-	thetaX_Eigen = Eigen::VectorXd::Zero(3);
-	thetaY_Eigen = Eigen::VectorXd::Zero(3);
+	thetaX_Eigen = Eigen::VectorXd::Zero(6);
+	thetaY_Eigen = Eigen::VectorXd::Zero(6);
 	Eigen::HouseholderQR<Eigen::MatrixXd> qr(a);
 	Q = qr.householderQ();
 	R = qr.matrixQR().triangularView<Eigen::Upper>();
@@ -478,14 +473,14 @@ int auto_calibrate()
 		circle(img, Point(ex[i], ey[i]), 5, Scalar(255, 0, 255), -1, CV_AA);
 		cout << "Punto estimado: " << ex[i] << ", " << ey[i] << endl;
 	}
-	circle(img, Point((width / 3) * 2, 100), 5, Scalar(0, 0, 100), -1, CV_AA);
-	circle(img, Point(width / 3, height - 100), 5, Scalar(0, 0, 100), -1, CV_AA);
+	circle(img, scr_pnt_up, 5, Scalar(0, 0, 100), -1, CV_AA);
+	circle(img, scr_pnt_down, 5, Scalar(0, 0, 100), -1, CV_AA);
 
 	for (int i = 0; i < centroids.rows; i++)
 	{
-		Eigen::VectorXd a_red(3);
+		Eigen::VectorXd a_red(6);
 		double *pred = centroids.ptr<double>(i);
-		a_red << 1, pred[0], pred[1];
+		a_red << 1, pred[0], pred[1], pred[0] * pred[0], pred[1] * pred[1], pred[0] * pred[1];
 		double redx = a_red.dot(thetaX_Eigen);
 		double redy = a_red.dot(thetaY_Eigen);
 		circle(img, Point(redx, redy), 5, Scalar(0, 0, 0), -1, CV_AA);
@@ -531,12 +526,13 @@ int auto_calibrate()
 		return (norm(a - Point2f((width / 4) * 3, height / 2)) < norm(b - Point2f((width / 4) * 3, height / 2)));
 	});
 	Point2f pnt_4 = fix_4[floorf(fix_4.size() / 2)];
-	Eigen::Vector3d vec_4;
-	vec_4 << 1, pnt_4.x, pnt_4.y;
+	Eigen::VectorXd vec_4(6);
+	vec_4 << 1, pnt_4.x, pnt_4.y, pnt_4.x * pnt_4.x, pnt_4.y * pnt_4.y, pnt_4.x * pnt_4.y;
 	double x_4 = vec_4.dot(thetaX_Eigen), y_4 = vec_4.dot(thetaY_Eigen);
 	cout << "x: " << x_4 << endl
 		<< "y: " << y_4 << endl;
 	circle(matPoint, Point(x_4, y_4), 15, Scalar(0, 0, 100), -1, CV_AA);
+	cout << "points up and down :" << endl << scr_pnt_up.x << ", " << scr_pnt_up.y << endl << scr_pnt_down.x << ", " << scr_pnt_down.y << endl;
 	imshow("Display window", matPoint); // Show our image inside it.
 	waitKey(0);
 	return 0;
@@ -700,6 +696,5 @@ int main(int argc, char **argv)
 	//m->~MyGaze();
 
 	auto_calibrate();
-
 	return 0;
 }
