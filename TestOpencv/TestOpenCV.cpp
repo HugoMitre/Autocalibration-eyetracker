@@ -268,6 +268,25 @@ int calibration_points(Mat &a, float x, float y, vector<Point2f> tmp)
 	return 0;
 }
 
+int factorize_givens(Eigen::MatrixXd &Q, Eigen::MatrixXd &R)
+{
+	Eigen::MatrixXd idnt = Eigen::MatrixXd::Identity(Q.rows(), Q.cols());
+	for (int i = 0; i < R.cols(); i++)
+	{
+		Eigen::MatrixXd tmp = idnt;
+		Eigen::Matrix2d rotation;
+		double a = R(i, i), b = R(i + 1, i);
+		double hipotenuse = sqrt((a * a) + (b * b));
+		rotation << a / hipotenuse, b / hipotenuse,
+			-b / hipotenuse, a / hipotenuse;
+		tmp.block(i, i, 2, 2) = rotation;
+		R = tmp * R;
+		cout << R << endl;
+		Q = Q * tmp.transpose();
+	}
+	return 0;
+}
+
 int auto_calibrate()
 {
 	ofstream outfile;
@@ -493,10 +512,11 @@ int auto_calibrate()
 	waitKey(0);
 
 	//m = new MyGaze();
+	Point2f pntex1((width / 4) * 3, height / 2);
 	matPoint = Mat(Size(width, height), CV_8UC3);
 	matPoint.setTo(Scalar(255, 255, 255));
 	circle(matPoint,
-		Point((width / 4) * 3, height / 2),
+		pntex1,
 		10.0,
 		Scalar(0, 0, 0),
 		-1,
@@ -534,6 +554,58 @@ int auto_calibrate()
 	circle(matPoint, Point(x_4, y_4), 15, Scalar(0, 0, 100), -1, CV_AA);
 	cout << "points up and down :" << endl << scr_pnt_up.x << ", " << scr_pnt_up.y << endl << scr_pnt_down.x << ", " << scr_pnt_down.y << endl;
 	imshow("Display window", matPoint); // Show our image inside it.
+	waitKey(0);
+
+	/* Add point to calibration */
+	Eigen::MatrixXd idnt = Eigen::MatrixXd::Identity(Q.rows() + 1, Q.cols() + 1);
+	Eigen::MatrixXd tmp = idnt;
+	tmp.block(1, 1, Q.rows(), Q.cols()) = Q;
+	Q = tmp;
+	/*tmp = Eigen::MatrixXd(a.rows() + 1, a.cols());
+	tmp << vec_4.transpose(),
+		a;
+	cout << Q * tmp << endl;*/
+	cout << R << endl;
+	tmp = Eigen::MatrixXd(R.rows() + 1, R.cols());
+	tmp << vec_4.transpose(),
+		R;
+	R = tmp;
+	cout << endl << R << endl;
+	cout << "doing givens..." << endl;
+	factorize_givens(Q, R);
+	thetaX_Eigen = Eigen::VectorXd::Zero(6);
+	thetaY_Eigen = Eigen::VectorXd::Zero(6);
+	Eigen::VectorXd vtmpx(x.size() + 1), vtmpy(y.size() + 1);
+	vtmpx << (width / 4) * 3, x;
+	vtmpy << height / 2, y;
+	QtX = Q.transpose() * vtmpx;
+	QtY = Q.transpose() * vtmpy;
+	for (int i = (R.cols() - 1); i > -1; i--)
+	{
+		thetaX_Eigen(i) = (QtX(i, 0) - R.row(i).dot(thetaX_Eigen)) / R(i, i);
+		thetaY_Eigen(i) = (QtY(i, 0) - R.row(i).dot(thetaY_Eigen)) / R(i, i);
+	}
+	cout << thetaX_Eigen << endl
+		<< endl
+		<< thetaY_Eigen << endl;
+	x_4 = vec_4.dot(thetaX_Eigen);
+	y_4 = vec_4.dot(thetaY_Eigen);
+	cout << "x: " << x_4 << endl
+		<< "y: " << y_4 << endl;
+	circle(matPoint, Point(x_4, y_4), 15, Scalar(0, 100, 100), -1, CV_AA);
+	cout << "points up and down :" << endl << scr_pnt_up.x << ", " << scr_pnt_up.y << endl << scr_pnt_down.x << ", " << scr_pnt_down.y << endl;
+	imshow("Display window", matPoint); // Show our image inside it.
+
+	/* Minimos cuadrados */
+	tmp = Eigen::MatrixXd(a.rows() + 1, a.cols());
+	cout << "A size R*C" << a.rows() << " * " << a.cols() << endl;
+	tmp << vec_4.transpose(),
+		a;
+	cout << "A size R*C" << a.rows() << " * " << a.cols() << endl;
+	Eigen::VectorXd thetaXMC(6), thetaYMC(6);
+	thetaXMC = (tmp.transpose() * tmp).inverse() * tmp.transpose() * vtmpx;
+	thetaYMC = (tmp.transpose() * tmp).inverse() * tmp.transpose() * vtmpy;
+	cout << "Minimos cuadrados" << endl << thetaXMC << endl << thetaYMC << endl;
 	waitKey(0);
 	return 0;
 }
